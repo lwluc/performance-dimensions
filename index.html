@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Performance Dimensions</title>
+<style>
+  :root {
+    --fg: #111;
+    --muted: #777;
+    --bg: #fff;
+  }
+
+  body {
+    margin: 0;
+    padding: 40px;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    text-align: center;
+    user-select: none;
+  }
+
+  h1 {
+    font-weight: normal;
+    font-size: 1.4rem;
+    margin-bottom: 40px;
+  }
+
+  svg {
+    width: 600px;
+    height: 600px;
+    display: block;
+    margin: 0 auto;
+    user-select: none;
+  }
+
+  polygon {
+    fill: rgba(0,0,0,0.05);
+    stroke: #000;
+    stroke-width: 2;
+    transition: points 0.25s ease;
+  }
+
+  .handle {
+    fill: #fff;
+    stroke: #000;
+    stroke-width: 2;
+    cursor: grab;
+  }
+
+  .handle.active {
+    fill: #000;
+  }
+
+  .hit {
+    fill: transparent;
+    cursor: grab;
+  }
+
+  text {
+    font-size: 14px;
+    fill: #000;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  .value {
+    font-size: 12px;
+    fill: var(--muted);
+    pointer-events: none;
+    user-select: none;
+  }
+</style>
+</head>
+
+<body>
+
+<h1>Performance Dimensions: Time, Quality and Cost</h1>
+
+<svg id="svg" viewBox="0 0 400 400">
+  <polygon id="triangle" />
+
+  <circle class="hit" r="20" data-key="time"/>
+  <circle class="handle" r="8" data-key="time"/>
+  <text id="label-time">Time</text>
+  <text id="value-time" class="value"></text>
+
+  <circle class="hit" r="20" data-key="cost"/>
+  <circle class="handle" r="8" data-key="cost"/>
+  <text id="label-cost">Cost</text>
+  <text id="value-cost" class="value"></text>
+
+  <circle class="hit" r="20" data-key="quality"/>
+  <circle class="handle" r="8" data-key="quality"/>
+  <text id="label-quality">Quality</text>
+  <text id="value-quality" class="value"></text>
+</svg>
+
+<script>
+const svg = document.getElementById('svg');
+const center = { x: 200, y: 200 };
+const maxRadius = 170;
+
+const points = {
+  time:    { angle:   0, weight: 0.6 },
+  cost:    { angle: 120, weight: 0.6 },
+  quality: { angle: 240, weight: 0.6 }
+};
+
+const triangle = document.getElementById('triangle');
+
+function svgPoint(evt) {
+  const pt = svg.createSVGPoint();
+  pt.x = evt.clientX;
+  pt.y = evt.clientY;
+  return pt.matrixTransform(svg.getScreenCTM().inverse());
+}
+
+function polarToXY(angle, weight) {
+  const rad = (angle - 90) * Math.PI / 180;
+  return {
+    x: center.x + Math.cos(rad) * weight * maxRadius,
+    y: center.y + Math.sin(rad) * weight * maxRadius
+  };
+}
+
+function update() {
+  const coords = {};
+  for (const k in points) coords[k] = polarToXY(points[k].angle, points[k].weight);
+
+  triangle.setAttribute(
+    'points',
+    `${coords.time.x},${coords.time.y} ${coords.cost.x},${coords.cost.y} ${coords.quality.x},${coords.quality.y}`
+  );
+
+  document.querySelectorAll('[data-key]').forEach(el => {
+    const k = el.dataset.key;
+    el.setAttribute('cx', coords[k].x);
+    el.setAttribute('cy', coords[k].y);
+  });
+
+  for (const k in coords) {
+    const label = document.getElementById(`label-${k}`);
+    label.setAttribute('x', coords[k].x);
+    label.setAttribute('y', coords[k].y - 14);
+
+    const val = Math.round(points[k].weight * 100) + "%";
+    const elVal = document.getElementById(`value-${k}`);
+    elVal.textContent = val;
+    elVal.setAttribute('x', coords[k].x);
+    elVal.setAttribute('y', coords[k].y + 18);
+  }
+}
+
+let activeKey = null;
+
+svg.addEventListener('pointerdown', e => {
+  const key = e.target.dataset.key;
+  if (!key) return;
+
+  activeKey = key;
+  document.querySelector(`.handle[data-key="${key}"]`).classList.add('active');
+  svg.setPointerCapture(e.pointerId);
+});
+
+svg.addEventListener('pointermove', e => {
+  if (!activeKey) return;
+
+  const p = svgPoint(e);
+  const dx = p.x - center.x;
+  const dy = p.y - center.y;
+
+  const a = (points[activeKey].angle - 90) * Math.PI / 180;
+  const projected = dx * Math.cos(a) + dy * Math.sin(a);
+  const clamped = Math.max(0, Math.min(projected, maxRadius));
+
+  points[activeKey].weight = clamped / maxRadius;
+  update();
+});
+
+svg.addEventListener('pointerup', e => {
+  if (!activeKey) return;
+  document.querySelector(`.handle[data-key="${activeKey}"]`).classList.remove('active');
+  activeKey = null;
+  svg.releasePointerCapture(e.pointerId);
+});
+
+update();
+</script>
+
+</body>
+</html>
