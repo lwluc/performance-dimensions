@@ -1,2 +1,2 @@
-# lwluc.io-performance-dimensions
+# Performance Dimensions
 Performance Dimensions: Time, Quality and Cost
